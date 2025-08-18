@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Employee - Kids Station</title>
+    <title>Manage Employee - Kids-Station</title>
     <link rel="icon" href="images/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
@@ -11,7 +11,7 @@
 <body>
     <div id="loginForm" class="login-container">
         <div class="login-box">
-            <img src="images/Logo.png" alt="Kids Station Logo" class="login-logo">
+            <img src="images/logo.png" alt="KidsStation Logo" class="login-logo">
             <h2>Login</h2>
             <form id="loginFormElement" onsubmit="return handleLoginSubmit(event)">
                 <div class="form-group">
@@ -37,10 +37,10 @@
     <div class="container" style="display: none;">
         <div class="header">
             <div class="logo-and-title">
-                <img src="images/Logo.png" alt="Kids Station Logo" class="company-logo">
+                <img src="images/logo.png" alt="KidsStation Logo" class="company-logo">
                 <div class="header-text">
-                    <h2 class="company-name">Kids Station</h2>
-                    <h1>Manage Employee</h1>
+                    <h2 class="company-name">kidsStation</h2>
+                    <h2 class="branch-display">Manage Employee: <span class="userBranchDisplay"></span></h2>
                 </div>
             </div>
             <button class="logout-button" onclick="logout()">
@@ -77,9 +77,9 @@
 
         <!-- Employee Add Form -->
         <div id="addEmployeeForm" class="form-container" style="display: none;">
-            <h2>Staff Management</h2>
+            <h2>Manage Employee</h2>
             <div class="form-group">
-                <h3 class="branch-display">Branch: <span id="userBranchDisplay"></span></h3>
+                <h3 class="branch-display">Branch: <span class="userBranchDisplay"></span></h3>
             </div>
             
             <!-- Employees List -->
@@ -88,10 +88,10 @@
                     <table class="employees-table">
                         <thead>
                             <tr>
-                                <th>Employee Code</th>
+                                <th>Code</th>
                                 <th>Employee Name</th>
                                 <th>Job Title</th>
-                                <th>Phone Number</th>
+                                <th>Phone</th>
                                 <th>Branch</th>
                                 <th>Actions</th>
                             </tr>
@@ -117,24 +117,6 @@
                 <button type="submit">Save</button>
             </form>
 
-            <!-- Edit Employee Form -->
-            <form id="editEmployeeForm" style="display: none;">
-                <h3>Edit Employee Details</h3>
-                <input type="hidden" id="editEmpCode">
-                <input type="text" id="editEmpName" placeholder="Employee Name" required>
-                <input type="text" id="editEmpTitle" placeholder="Job Title" required>
-                <input type="tel" id="editEmpPhone" placeholder="Phone Number" required>
-                <select id="editEmpBranch" required>
-                    <option value="">Select Branch</option>
-                    <option value="Rehab">Rehab</option>
-                    <option value="Nasr City">Nasr City</option>
-                    <option value="Madinaty">Madinaty</option>
-                </select>
-                <div class="form-buttons">
-                    <button type="submit">Save Changes</button>
-                    <button type="button" onclick="hideEditForm()">Cancel</button>
-                </div>
-            </form>
         </div>
 
         <!-- Attendance Form -->
@@ -231,4 +213,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
