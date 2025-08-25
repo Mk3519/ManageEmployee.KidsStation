@@ -162,6 +162,7 @@ body {
 }
 
 .header {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -188,34 +189,34 @@ body {
 
 .logout-button {
     position: absolute;
-    top: 50%;
-    left: 20px;
-    transform: translateY(-50%);
-    padding: 10px 20px;
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);
+    top: 5px;
+    left: 5px;
+    padding: 2px 4px;
+    background: #ff5252;
     color: white;
     border: none;
-    border-radius: 25px;
+    border-radius: 2px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 15px;
+    gap: 2px;
+    font-size: 10px;
     font-weight: 500;
-    letter-spacing: 0.5px;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 15px rgba(238, 82, 83, 0.2);
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(238, 82, 83, 0.2);
+    height: 16px;
+    min-width: 40px;
 }
 
 .logout-button i {
-    font-size: 18px;
-    transition: transform 0.3s ease;
+    font-size: 10px;
+    transition: transform 0.2s ease;
 }
 
 .logout-button:hover {
-    background: linear-gradient(135deg, #ff5252 0%, #d43434 100%);
-    box-shadow: 0 6px 20px rgba(238, 82, 83, 0.4);
-    transform: translateY(-50%) scale(1.02);
+    background: #d43434;
+    box-shadow: 0 1px 3px rgba(238, 82, 83, 0.3);
+    transform: translateY(-1px);
 }
 
 .logout-button:hover i {
@@ -363,6 +364,119 @@ h1 {
     text-align: center;
     color: #666;
     padding: 20px;
+}
+
+/* Message Box Styles */
+.message-box {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 30px;
+    border-radius: 12px;
+    min-width: 400px;
+    max-width: 90%;
+    z-index: 2000;
+    text-align: center;
+    background: white;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease-out;
+    border: 2px solid #3498db;
+}
+
+.message-box.success {
+    border-color: #3498db;
+}
+
+.message-box.success::before {
+    content: '✓';
+    display: block;
+    font-size: 48px;
+    color: #3498db;
+    margin-bottom: 20px;
+}
+
+.message-box.error {
+    border-color: #e74c3c;
+}
+
+.message-box.error::before {
+    content: '✕';
+    display: block;
+    font-size: 48px;
+    color: #e74c3c;
+    margin-bottom: 20px;
+}
+
+.message-box .message-content {
+    margin-bottom: 25px;
+    font-size: 20px;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+.message-box .close-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 120px;
+}
+
+.message-box .close-btn:hover {
+    background: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.message-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1999;
+    backdrop-filter: blur(4px);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translate(-50%, -60%);
+        opacity: 0;
+    }
+    to {
+        transform: translate(-50%, -50%);
+        opacity: 1;
+    }
+}
+
+/* Responsive message box */
+@media (max-width: 480px) {
+    .message-box {
+        min-width: 90%;
+        padding: 25px;
+    }
+    
+    .message-box .message-content {
+        font-size: 18px;
+    }
+
+    .message-box::before {
+        font-size: 42px;
+    }
+
+    .message-box .close-btn {
+        width: 100%;
+        padding: 12px;
+    }
 }
 
 .card-actions {
@@ -1155,11 +1269,11 @@ input, select, textarea {
     background-color: #ffebee;
 }
 
-.status-leave {
+.status-vacation {
     background-color: #fff3e0;
 }
 
-.status-unauth-leave {
+.status- Leave a vacation {
     background-color: #fce4ec;
 }
 
@@ -1308,12 +1422,12 @@ select, input {
     color: #c62828;
 }
 
-.status.leave {
+.status.vacation {
     background-color: #fff3e0;
     color: #ef6c00;
 }
 
-.status.unauth-leave {
+.status.Leave a vacation {
     background-color: #fce4ec;
     color: #c2185b;
 }
@@ -1364,6 +1478,684 @@ select, input {
     background-color: #f5f9ff;
 }
 
+.branch-selection {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+#branchSelector {
+    margin-right: 15px;
+}
+
+#branchSelect {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    min-width: 200px;
+    background-color: white;
+    cursor: pointer;
+}
+
+#branchSelect:hover {
+    border-color: #3498db;
+}
+
+#branchSelect:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+#employeeForm {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#employeeForm input {
+    margin-bottom: 15px;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#employeeForm button {
+    background-color: #2980b9;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+}
+
+#employeeForm button:hover {
+    background-color: #3498db;
+}
+
+.toggle-form-btn {
+    margin: 20px 0;
+    background-color: #2980b9;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.toggle-form-btn:hover {
+    background-color: #3498db;
+}
+
+/* Header Styles */
+.header {
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1rem;
+    margin-bottom: 2rem;
+}
+
+.header-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.company-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+}
+
+.header-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.company-name {
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin: 0;
+    color: #333;
+}
+
+.branch-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.branch-name {
+    font-size: 1.2rem;
+    color: #666;
+    margin: 0;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.logout-button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 4px;
+    background-color: #f44336;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.logout-button:hover {
+    background-color: #d32f2f;
+}
+
+.logout-button i {
+    font-size: 1.1rem;
+}
+
+#branchSelect {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+/* Attendance Form Styling */
+#employeesList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.employee-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.employee-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.employee-info {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+}
+
+.employee-name {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.employee-title {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.attendance-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.radio-option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background: #f8f9fa;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.radio-option:hover {
+    background: #e9ecef;
+    border-color: #dee2e6;
+}
+
+.radio-option input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    cursor: pointer;
+}
+
+.radio-option span {
+    font-size: 0.9rem;
+    color: #495057;
+    transition: color 0.2s ease;
+}
+
+/* Status-specific styles */
+.radio-option input[value="Present"]:checked + span {
+    color: #28a745;
+    font-weight: 600;
+}
+
+.radio-option input[value="Present"]:checked ~ .radio-option {
+    border-color: #28a745;
+    background-color: #d4edda;
+}
+
+.radio-option input[value="Absent"]:checked + span {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.radio-option input[value="Absent"]:checked ~ .radio-option {
+    border-color: #dc3545;
+    background-color: #f8d7da;
+}
+
+.radio-option input[value="vacation"]:checked + span,
+.radio-option input[value="Leave a vacation"]:checked + span {
+    color: #fd7e14;
+    font-weight: 600;
+}
+
+.radio-option input[value="vacation"]:checked ~ .radio-option,
+.radio-option input[value="Leave a vacation"]:checked ~ .radio-option {
+    border-color: #fd7e14;
+    background-color: #fff3cd;
+}
+
+/* Save Button Styling */
+.save-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 0;
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(41, 128, 185, 0.2);
+}
+
+.save-btn:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #2475a8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(41, 128, 185, 0.3);
+}
+
+.save-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(41, 128, 185, 0.2);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    #employeesList {
+        grid-template-columns: 1fr;
+        padding: 10px;
+    }
+
+    .attendance-options {
+        grid-template-columns: 1fr;
+    }
+
+    .radio-option {
+        padding: 8px;
+    }
+
+    .employee-name {
+        font-size: 1.1rem;
+    }
+}
+
+
+/* Penalty Styles */
+.rating-item.penalty {
+    margin-top: 10px;
+    background-color: rgba(255, 0, 0, 0.05);
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.rating-item.penalty .progress.negative {
+    background-color: #ff4444;
+}
+
+.rating-item.penalty.has-penalty .rating-value {
+    color: #ff4444;
+    font-weight: bold;
+}
+
+.rating-item.penalty .rating-label {
+    color: #ff4444;
+}
+
+.top-employees-title {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #2c3e50;
+}
+
+.top-employees-grid {
+    display: grid;
+    gap: 2rem;
+    padding: 1rem;
+}
+
+.best-employee-card {
+    position: relative;
+    border: 2px solid #045cff;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.best-employee-card.gold {
+    border-color: #ffd700;
+    background: linear-gradient(135deg, rgba(255, 217, 0, 0.247) 0%, rgba(255,215,0,0.05) 100%);
+    box-shadow: 0 4px 20px rgb(255, 217, 0);
+}
+
+.crown {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ffd000;
+    font-size: 2rem;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.rank-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #2c3e50;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: bold;
+}
+
+@media (min-width: 768px) {
+    .top-employees-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+}
 
 
 
+
+
+
+
+/* تنسيق الأيام المحددة في التقويم */
+.selected-date-range {
+    background-color: #3498db !important;
+    color: white !important;
+}
+
+.selected-date-range:hover {
+    background-color: #2980b9 !important;
+}
+
+/* تنسيق التقويم */
+.date-picker {
+    position: relative;
+}
+
+.ui-datepicker {
+    padding: 10px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.ui-datepicker-header {
+    background: #3498db;
+    color: white;
+    padding: 5px;
+    border-radius: 3px 3px 0 0;
+}
+
+.ui-datepicker-calendar th {
+    padding: 5px;
+    color: #666;
+}
+
+.ui-datepicker-calendar td {
+    padding: 2px;
+    text-align: center;
+}
+
+.ui-datepicker-calendar td:not(.selected-date-range) {
+    background: white;
+}
+
+.ui-datepicker-calendar td:hover:not(.selected-date-range) {
+    background: #f5f5f5;
+}
+
+/* تنسيق أزرار التنقل */
+.ui-datepicker-prev,
+.ui-datepicker-next {
+    cursor: pointer;
+    padding: 5px;
+    margin: 2px;
+    border-radius: 3px;
+}
+
+.ui-datepicker-prev:hover,
+.ui-datepicker-next:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+/* تنسيق عنوان الشهر والسنة */
+.ui-datepicker-title {
+    font-weight: bold;
+    margin: 5px 0;
+}
+
+/* تنسيق مربع اختيار التاريخ */
+.date-picker {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+    background-color: #fff;
+    cursor: pointer;
+    width: 200px;
+    margin: 10px 0;
+}
+
+.date-picker::-webkit-calendar-picker-indicator {
+    padding: 4px;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.date-picker::-webkit-calendar-picker-indicator:hover {
+    background-color: #f0f0f0;
+}
+
+.date-picker:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* تنسيق مربع اختيار التاريخ عند فتحه */
+.date-picker::-webkit-datetime-edit {
+    padding: 0 4px;
+}
+
+.date-picker::-webkit-datetime-edit-fields-wrapper {
+    background-color: transparent;
+}
+
+.date-picker::-webkit-datetime-edit-text {
+    color: #666;
+    padding: 0 2px;
+}
+
+.date-picker::-webkit-datetime-edit-month-field,
+.date-picker::-webkit-datetime-edit-day-field,
+.date-picker::-webkit-datetime-edit-year-field {
+    padding: 0 2px;
+    color: #333;
+}
+
+.date-picker::-webkit-inner-spin-button {
+    display: none;
+}
+
+/* تنسيق قائمة التاريخ المنسدلة */
+.date-picker::-webkit-calendar-picker-indicator {
+    background-color: transparent;
+    padding: 8px;
+    cursor: pointer;
+}
+
+.date-picker::-webkit-calendar-picker-indicator:hover {
+    background-color: rgba(52, 152, 219, 0.1);
+    border-radius: 4px;
+}
+
+/* تنسيق تقويم اختيار التاريخ */
+::-webkit-datetime-edit {
+    padding: 0.2em;
+}
+
+::-webkit-datetime-edit-fields-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+::-webkit-datetime-edit-text {
+    padding: 0 0.3em;
+}
+
+::-webkit-datetime-edit-month-field,
+::-webkit-datetime-edit-day-field,
+::-webkit-datetime-edit-year-field {
+    padding: 0.2em;
+}
+
+::-webkit-inner-spin-button {
+    display: none;
+}
+
+::-webkit-calendar-picker-indicator {
+    font-size: 1.2em;
+    opacity: 0.8;
+}
+
+::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+
+
+/* تنسيقات التقرير الشامل */
+.comprehensive-report {
+    margin: 15px;
+    padding: 15px;
+    background: white;
+}
+
+.comprehensive-report table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+    background-color: transparent;
+    border: 1px solid #dee2e6;
+}
+
+.comprehensive-report th,
+.comprehensive-report td {
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #dee2e6;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.comprehensive-report th {
+    background: #f8f9fa;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.comprehensive-report tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.comprehensive-report tbody tr:hover {
+    background-color: #f2f2f2;
+}
+
+.comprehensive-report .present-cell { color: #28a745; font-weight: bold; }
+.comprehensive-report .absent-cell { color: #dc3545; font-weight: bold; }
+.comprehensive-report .vacation-cell { color: #ffc107; font-weight: bold; }
+.comprehensive-report .evaluation-cell { color: #17a2b8; font-weight: bold; }
+.comprehensive-report .penalty-cell { color: #dc3545; font-weight: bold; }
+
+.comprehensive-report th,
+.comprehensive-report td {
+    padding: 8px;
+    border: 1px solid #dee2e6;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.comprehensive-report th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: bold;
+    color: #333;
+}
+
+.comprehensive-report tr:nth-of-type(even) {
+    background-color: #f9f9f9;
+}
+
+.comprehensive-report tr:hover {
+    background-color: rgba(0,0,0,.075);
+}
+
+.comprehensive-report .present-cell { color: #28a745; }
+.comprehensive-report .absent-cell { color: #dc3545; }
+.comprehensive-report .vacation-cell { color: #ffc107; }
+.comprehensive-report .evaluation-cell { color: #17a2b8; }
+.comprehensive-report .penalty-cell { color: #dc3545; }
+
+/* تنسيقات الشاشات الصغيرة */
+@media screen and (max-width: 768px) {
+    .comprehensive-report {
+        margin: 10px;
+        padding: 10px;
+    }
+
+    .comprehensive-report .report-header h3 {
+        font-size: 16px;
+        margin-bottom: 15px;
+    }
+
+    .comprehensive-report table {
+        font-size: 13px;
+    }
+
+    .comprehensive-report th,
+    .comprehensive-report td {
+        padding: 6px;
+    }
+
+    .comprehensive-report .table-container {
+        margin: 0;
+        padding: 0;
+        overflow-x: auto;
+    }
+}
+
+.comprehensive-report .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.comprehensive-report table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
