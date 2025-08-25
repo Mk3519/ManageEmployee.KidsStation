@@ -22,11 +22,12 @@ function doGet(e) {
         return handleLogin(e.parameter.email, e.parameter.password);
       case 'getEmployeeReport':
         return getEmployeeReport(e);
-      
+      case 'getComprehensiveReport':
+        return getComprehensiveReport(e);
       default:
         return ContentService.createTextOutput(JSON.stringify({
           success: false,
-          error: 'Invalid action'
+          error: 'عملية غير صالحة'
         })).setMimeType(ContentService.MimeType.JSON);
     }
   } catch (error) {
@@ -178,18 +179,19 @@ function getEmployeesByBranch(branch) {
     console.log('Branch received:', branch);
     console.log('Total rows:', data.length);
 
+    // إذا كان الاختيار "All Branches" نعيد جميع الموظفين
     const employees = data.slice(1)
       .filter(row => {
         console.log('Checking row:', row);
         console.log('Branch in row:', row[4]);
-        return row[4] === branch;
+        return branch === 'All Branches' ? true : row[4] === branch;
       })
       .map(row => ({
         code: row[0],
         name: row[1],
         title: row[2],
-        phone: row[3],    // إضافة رقم الهاتف
-        branch: row[4]    // إضافة اسم الفرع
+        phone: row[3],
+        branch: row[4]
       }));
     
     console.log('Filtered employees:', employees);
@@ -539,10 +541,7 @@ function getBestEmployee(e) {
   try {
     console.log('getBestEmployee called with:', e);
     const branch = e?.parameter?.branch;
-    console.log('Branch:', branch);
-    
     if (!branch) {
-      console.log('No branch specified in request');
       throw new Error('لم يتم تحديد الفرع');
     }
 
@@ -552,89 +551,98 @@ function getBestEmployee(e) {
     const attendanceSheet = ss.getSheetByName('Attendance');
     const penaltiesSheet = ss.getSheetByName('Penalties');
     
-    // الحصول على بيانات الشهر الحالي
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     
-    // جلب البيانات
     const employees = employeesSheet.getDataRange().getValues();
-    const evaluations = evaluationsSheet.getDataRange().getValues();
-    const attendance = attendanceSheet.getDataRange().getValues();
-    const penalties = penaltiesSheet.getDataRange().getValues();
-    
-    let bestEmployee = null;
-    let highestScore = 0;
-    
-    // حساب عدد أيام العمل في الشهر (باستثناء الجمعة)
-    const workDaysInMonth = getWorkDaysInMonth(firstDayOfMonth, lastDayOfMonth);
-    
-    // معالجة كل موظف في الفرع المحدد
-    console.log('All employees:', employees.slice(1));
-    const branchEmployees = employees.slice(1).filter(employee => employee[4] === branch);
-    console.log('Branch employees:', branchEmployees);
-    
-    branchEmployees.forEach(employee => {
-        const employeeCode = employee[0];
-        console.log('Processing employee:', employee);
-        
-        // حساب نسبة الحضور
-        const attendanceRate = calculateAttendanceRate(
-          attendance.slice(1),
-          employeeCode,
-          firstDayOfMonth,
-          workDaysInMonth
-        );
-        
-        // حساب متوسط التقييمات
-        const evaluationRate = calculateEvaluationRate(
-          evaluations.slice(1),
-          employeeCode,
-          firstDayOfMonth
-        );
-        
-        // التحقق من وجود جزاءات
-        const penaltyInfo = checkPenalties(
-          penalties.slice(1),
-          employeeCode,
-          firstDayOfMonth
-        );
-        
-        // حساب التقييم النهائي
-        // 40% للحضور + 60% للتقييم - خصم الجزاءات
-        const finalScore = calculateFinalScore(attendanceRate, evaluationRate, penaltyInfo.deduction);
-        
-        if (finalScore > highestScore) {
-          highestScore = finalScore;
-          bestEmployee = {
-            name: employee[1],
-            branch: employee[4],
-            title: employee[2],
-            attendanceRate: attendanceRate,
-            evaluationRate: evaluationRate,
-            hasPenalty: penaltyInfo.hasPenalty,
-            finalScore: finalScore
-          };
-        }
-    });
-    
-    const response = {
-      success: true,
-      employee: bestEmployee,
-      debug: {
-        employeesCount: employees.length - 1,
-        branchEmployeesCount: employees.slice(1).filter(emp => emp[4] === branch).length,
-        evaluationsCount: evaluations.length - 1,
-        attendanceCount: attendance.length - 1,
-        penaltiesCount: penalties.length - 1
+    const branchEmployees = employees.slice(1).filter(emp => emp[4] === branch);
+
+    let employeeScores = [];
+
+    // معالجة كل موظف
+    for (const employee of branchEmployees) {
+      const employeeId = employee[0];
+      
+      // حساب نسبة الحضور (50%)
+      const attendanceRecords = attendanceSheet.getDataRange().getValues()
+        .slice(1)
+        .filter(row => {
+          const date = new Date(row[0]);
+          return date >= firstDayOfMonth && 
+                 date <= lastDayOfMonth && 
+                 row[1] === employeeId &&
+                 row[2] === 'Present';
+        });
+      
+      const attendanceScore = (attendanceRecords.length / 26) * 50;
+
+      // حساب متوسط التقييمات (50%)
+      const evaluations = evaluationsSheet.getDataRange().getValues()
+        .slice(1)
+        .filter(row => {
+          const date = new Date(row[0]);
+          return date >= firstDayOfMonth && 
+                 date <= lastDayOfMonth && 
+                 row[1] === employeeId;
+        });
+
+      let evaluationScore = 0;
+      if (evaluations.length > 0) {
+        const avgRating = evaluations.reduce((sum, row) => {
+          return sum + ((row[2] + row[3] + row[4] + row[5]) / 4);
+        }, 0) / evaluations.length;
+        evaluationScore = (avgRating / 5) * 50;
       }
-    };
-    
-    console.log('Final response:', response);
-    
-    return ContentService.createTextOutput(JSON.stringify(response))
-      .setMimeType(ContentService.MimeType.JSON);
-    
+
+      // حساب خصومات الجزاءات
+      const penalties = penaltiesSheet.getDataRange().getValues()
+        .slice(1)
+        .filter(row => {
+          const date = new Date(row[0]);
+          return date >= firstDayOfMonth && 
+                 date <= lastDayOfMonth && 
+                 row[1] === employeeId;
+        });
+
+      let penaltyDeduction = 0;
+      if (penalties.length > 0) {
+        penalties.forEach(penalty => {
+          switch(penalty[3]) {
+            case 'ربع يوم': penaltyDeduction += 5; break;
+            case 'نصف يوم': penaltyDeduction += 10; break;
+            case 'يوم': penaltyDeduction += 15; break;
+            case 'يومين': penaltyDeduction += 20; break;
+            case 'ثلاثة أيام': penaltyDeduction += 25; break;
+          }
+        });
+      }
+
+      const finalScore = Math.max(0, attendanceScore + evaluationScore - penaltyDeduction);
+
+      employeeScores.push({
+        name: employee[1],
+        branch: employee[4],
+        title: employee[2],
+        attendanceRate: attendanceScore,
+        evaluationRate: evaluationScore,
+        penaltyDeduction: penaltyDeduction,
+        hasPenalty: penalties.length > 0,
+        finalScore: finalScore
+      });
+    }
+
+    // ترتيب الموظفين حسب النتيجة النهائية
+    employeeScores.sort((a, b) => b.finalScore - a.finalScore);
+
+    // أخذ أفضل 4 موظفين
+    const topEmployees = employeeScores.slice(0, 4);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      employees: topEmployees
+    })).setMimeType(ContentService.MimeType.JSON);
+
   } catch (error) {
     console.error('Error in getBestEmployee:', error);
     return ContentService.createTextOutput(JSON.stringify({
@@ -644,128 +652,58 @@ function getBestEmployee(e) {
   }
 }
 
-// دالة لحساب أيام العمل في الشهر (باستثناء الجمعة)
-function getWorkDaysInMonth(startDate, endDate) {
-  let workDays = 0;
-  const currentDate = new Date(startDate);
-  
-  while (currentDate <= endDate) {
-    if (currentDate.getDay() !== 5) { // 5 يمثل يوم الجمعة
-      workDays++;
-    }
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  
-  return workDays;
-}
-
-// دالة لحساب نسبة الحضور
-function calculateAttendanceRate(attendanceData, employeeCode, startDate, workDays) {
-  const presentDays = attendanceData.filter(row => {
-    const date = new Date(row[0]);
-    return date >= startDate && 
-           row[1] === employeeCode && 
-           row[2] === 'Present';
-  }).length;
-  
-  return (presentDays / workDays) * 100;
-}
-
-// دالة لحساب متوسط التقييمات
-function calculateEvaluationRate(evaluationsData, employeeCode, startDate) {
-  const monthEvaluations = evaluationsData.filter(row => {
-    const date = new Date(row[0]);
-    return date >= startDate && row[1] === employeeCode;
-  });
-  
-  if (monthEvaluations.length === 0) {
-    return 0;
-  }
-  
-  const averageRating = monthEvaluations.reduce((acc, row) => {
-    // حساب متوسط التقييمات (النظافة، المظهر، العمل الجماعي، الالتزام بالمواعيد)
-    return acc + ((row[2] + row[3] + row[4] + row[5]) / 4);
-  }, 0) / monthEvaluations.length;
-  
-  return (averageRating / 5) * 100; // تحويل التقييم إلى نسبة مئوية
-}
-
-// دالة للتحقق من الجزاءات
-function checkPenalties(penaltiesData, employeeCode, startDate) {
-  const monthPenalties = penaltiesData.filter(row => {
-    const date = new Date(row[0]);
-    return date >= startDate && row[1] === employeeCode;
-  });
-  
-  return {
-    hasPenalty: monthPenalties.length > 0,
-    deduction: monthPenalties.length > 0 ? 10 : 0 // خصم 10% في حالة وجود جزاءات
-  };
-}
-
-// دالة لحساب التقييم النهائي
-function calculateFinalScore(attendanceRate, evaluationRate, penaltyDeduction) {
-  return Math.max(0, (attendanceRate * 0.4) + (evaluationRate * 0.6) - penaltyDeduction);
-}
-
 function getEmployeeReport(e) {
   try {
     console.log('Getting report for employee:', e.parameter.employeeId);
     console.log('Report type:', e.parameter.reportType);
+    console.log('Selected month:', e.parameter.month);
     
     const employeeId = e.parameter.employeeId;
     const reportType = e.parameter.reportType;
+    const selectedMonth = e.parameter.month;
+    
+    if (!employeeId || !reportType || !selectedMonth) {
+      throw new Error('Missing required parameters');
+    }
+
+    const selectedDate = new Date(selectedMonth);
+    const firstDayOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const lastDayOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    
     const ss = SpreadsheetApp.getActive();
     
     switch(reportType) {
       case 'attendance':
         const attendanceSheet = ss.getSheetByName('Attendance');
         const allData = attendanceSheet.getDataRange().getValues();
-        console.log('Total attendance records:', allData.length);
         
-        // التحقق من وجود بيانات
-        if (allData.length <= 1) {
-          throw new Error('لا توجد سجلات حضور');
-        }
-
-        // استخراج سجلات الحضور للموظف المحدد
-        const employeeAttendance = allData.slice(1)  // تخطي صف العناوين
+        const employeeAttendance = allData.slice(1)
           .filter(row => {
-            console.log('Checking row:', row, 'Employee ID:', row[1], 'Looking for:', employeeId);
-            return row[1].toString() === employeeId.toString();
+            const recordDate = new Date(row[0]);
+            return row[1].toString() === employeeId.toString() &&
+                   recordDate >= firstDayOfMonth &&
+                   recordDate <= lastDayOfMonth;
           })
           .map(row => ({
             date: formatDate(row[0]),
             status: row[2]
           }));
 
-        console.log('Found attendance records:', employeeAttendance.length);
-        
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
-          data: employeeAttendance,
-          debug: {
-            totalRecords: allData.length,
-            employeeId: employeeId,
-            foundRecords: employeeAttendance.length
-          }
+          data: employeeAttendance
         })).setMimeType(ContentService.MimeType.JSON);
         
       case 'evaluation':
         const evaluationsSheet = ss.getSheetByName('Evaluations');
         const allEvalData = evaluationsSheet.getDataRange().getValues();
-        console.log('Total evaluation records:', allEvalData.length);
         
-        // التحقق من وجود بيانات
-        if (allEvalData.length <= 1) {
-          throw new Error('لا توجد سجلات تقييم');
-        }
-
-        // استخراج سجلات التقييم للموظف المحدد
-        const employeeEvaluations = allEvalData.slice(1)  // تخطي صف العناوين
+        const employeeEvaluations = allEvalData.slice(1)
           .filter(row => {
-            console.log('Checking evaluation row:', row, 'Employee ID:', row[1], 'Looking for:', employeeId);
-            return row[1].toString() === employeeId.toString();
+            const recordDate = new Date(row[0]);
+            return row[1].toString() === employeeId.toString() &&
+                   recordDate >= firstDayOfMonth &&
+                   recordDate <= lastDayOfMonth;
           })
           .map(row => ({
             date: formatDate(row[0]),
@@ -775,69 +713,238 @@ function getEmployeeReport(e) {
             punctuality: Number(row[5]),
             average: Number(row[6])
           }))
-          .sort((a, b) => new Date(b.date) - new Date(a.date)); // ترتيب حسب التاريخ تنازلياً
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        console.log('Found evaluation records:', employeeEvaluations.length);
-        
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
-          data: employeeEvaluations,
-          debug: {
-            totalRecords: allEvalData.length,
-            employeeId: employeeId,
-            foundRecords: employeeEvaluations.length
-          }
+          data: employeeEvaluations
         })).setMimeType(ContentService.MimeType.JSON);
         
       case 'penalty':
         const penaltiesSheet = ss.getSheetByName('Penalties');
         const allPenaltyData = penaltiesSheet.getDataRange().getValues();
-        console.log('Total penalty records:', allPenaltyData.length);
         
-        // التحقق من وجود بيانات
-        if (allPenaltyData.length <= 1) {
-          throw new Error('لا توجد سجلات جزاءات');
-        }
-
-        // استخراج سجلات الجزاءات للموظف المحدد
-        const employeePenalties = allPenaltyData.slice(1)  // تخطي صف العناوين
+        const employeePenalties = allPenaltyData.slice(1)
           .filter(row => {
-            console.log('Checking penalty row:', row, 'Employee ID:', row[1], 'Looking for:', employeeId);
-            return row[1].toString() === employeeId.toString();
+            const recordDate = new Date(row[0]);
+            return row[1].toString() === employeeId.toString() &&
+                   recordDate >= firstDayOfMonth &&
+                   recordDate <= lastDayOfMonth;
           })
           .map(row => ({
             date: formatDate(row[0]),
             reason: row[2],
             amount: row[3]
           }))
-          .sort((a, b) => new Date(b.date) - new Date(a.date)); // ترتيب حسب التاريخ تنازلياً
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        console.log('Found penalty records:', employeePenalties.length);
-        
         return ContentService.createTextOutput(JSON.stringify({
           success: true,
-          data: employeePenalties,
-          debug: {
-            totalRecords: allPenaltyData.length,
-            employeeId: employeeId,
-            foundRecords: employeePenalties.length
-          }
+          data: employeePenalties
         })).setMimeType(ContentService.MimeType.JSON);
         
       default:
-        throw new Error('نوع تقرير غير صالح');
+        throw new Error('Invalid report type');
     }
   } catch (error) {
     console.error('Error in getEmployeeReport:', error);
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
-      error: error.toString(),
-      debug: {
-        employeeId: e.parameter.employeeId,
-        reportType: e.parameter.reportType
-      }
+      error: error.toString()
     })).setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+// دالة الحصول على التقرير الشامل
+function getComprehensiveReport(e) {
+  try {
+    const period = e.parameter.period;
+    const startDate = e.parameter.startDate;
+    const branch = e.parameter.branch;
+    
+    if (!period || !startDate || !branch) {
+      throw new Error('يرجى توفير جميع المعلومات المطلوبة');
+    }
+
+    const ss = SpreadsheetApp.getActive();
+    const employeesSheet = ss.getSheetByName('Employees');
+    const attendanceSheet = ss.getSheetByName('Attendance');
+    const evaluationsSheet = ss.getSheetByName('Evaluations');
+    const penaltiesSheet = ss.getSheetByName('Penalties');
+
+    // تحديد نطاق التاريخ
+    const dateRange = getDateRange(startDate, period);
+    const startDateTime = dateRange.start;
+    const endDateTime = dateRange.end;
+
+    // الحصول على بيانات الموظفين في الفرع
+    const employees = employeesSheet.getDataRange().getValues();
+    const branchEmployees = employees.slice(1).filter(emp => emp[4] === branch);
+
+    // تجميع البيانات لكل موظف
+    const employeesData = branchEmployees.map(employee => {
+      const employeeCode = employee[0];
+      
+      // بيانات الحضور
+      const attendance = getAttendanceData(attendanceSheet, employeeCode, startDateTime, endDateTime);
+      
+      // بيانات التقييم
+      const evaluations = getEvaluationData(evaluationsSheet, employeeCode, startDateTime, endDateTime);
+      
+      // بيانات الجزاءات
+      const penalties = getPenaltyData(penaltiesSheet, employeeCode, startDateTime, endDateTime);
+
+      return {
+        code: employeeCode,
+        name: employee[1],
+        title: employee[2],
+        attendance: attendance,
+        evaluations: evaluations,
+        penalties: penalties
+      };
+    });
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      employees: employeesData,
+      dateRange: {
+        start: formatDate(startDateTime),
+        end: formatDate(endDateTime)
+      }
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    console.error('Error in getComprehensiveReport:', error);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// دالة تحديد نطاق التاريخ حسب نوع التقرير
+function getDateRange(startDate, period) {
+  const start = new Date(startDate);
+  let end = new Date(start);
+  
+  switch (period) {
+    case 'daily':
+      end.setDate(start.getDate() + 1);
+      break;
+    case 'weekly':
+      end.setDate(start.getDate() + 7);
+      break;
+    case 'monthly':
+      end.setMonth(start.getMonth() + 1);
+      break;
+    default:
+      throw new Error('نوع تقرير غير صالح');
+  }
+  
+  return { start, end };
+}
+
+// دالة الحصول على بيانات الحضور
+function getAttendanceData(sheet, employeeCode, startDate, endDate) {
+  const data = sheet.getDataRange().getValues();
+  const records = data.slice(1).filter(row => {
+    const recordDate = new Date(row[0]);
+    return row[1] === employeeCode && 
+           recordDate >= startDate && 
+           recordDate < endDate;
+  });
+  
+  if (records.length === 0) {
+    return {
+      present: 0,
+      absent: 0,
+      vacation: 0
+    };
+  }
+  
+  // حساب إحصائيات الحضور
+  const stats = records.reduce((acc, row) => {
+    const status = row[2];
+    if (status === 'Present') acc.present++;
+    else if (status === 'Absent') acc.absent++;
+    else if (status === 'vacation' || status === 'Leave a vacation') acc.vacation++;
+    return acc;
+  }, { present: 0, absent: 0, vacation: 0 });
+  
+  return stats;
+}
+
+// دالة الحصول على بيانات التقييم
+function getEvaluationData(sheet, employeeCode, startDate, endDate) {
+  const data = sheet.getDataRange().getValues();
+  const records = data.slice(1).filter(row => {
+    const recordDate = new Date(row[0]);
+    return row[1] === employeeCode && 
+           recordDate >= startDate && 
+           recordDate < endDate;
+  });
+
+  if (records.length === 0) {
+    return {
+      cleanliness: 0,
+      appearance: 0,
+      teamwork: 0,
+      punctuality: 0
+    };
+  }
+
+  // حساب متوسط التقييمات
+  const totals = records.reduce((acc, row) => {
+    acc.cleanliness += Number(row[2]);
+    acc.appearance += Number(row[3]);
+    acc.teamwork += Number(row[4]);
+    acc.punctuality += Number(row[5]);
+    return acc;
+  }, { cleanliness: 0, appearance: 0, teamwork: 0, punctuality: 0 });
+
+  const count = records.length;
+  return {
+    cleanliness: (totals.cleanliness / count).toFixed(2),
+    appearance: (totals.appearance / count).toFixed(2),
+    teamwork: (totals.teamwork / count).toFixed(2),
+    punctuality: (totals.punctuality / count).toFixed(2)
+  };
+}
+
+// دالة الحصول على بيانات الجزاءات
+function getPenaltyData(sheet, employeeCode, startDate, endDate) {
+  const data = sheet.getDataRange().getValues();
+  const records = data.slice(1).filter(row => {
+    const recordDate = new Date(row[0]);
+    return row[1] === employeeCode && 
+           recordDate >= startDate && 
+           recordDate < endDate;
+  });
+
+  if (records.length === 0) {
+    return {
+      count: 0,
+      totalDays: 0
+    };
+  }
+
+  // حساب إجمالي أيام الجزاءات
+  const totalDays = records.reduce((total, row) => {
+    const amount = row[3];
+    switch(amount) {
+      case 'ربع يوم': return total + 0.25;
+      case 'نصف يوم': return total + 0.5;
+      case 'يوم': return total + 1;
+      case 'يومين': return total + 2;
+      case 'ثلاثة أيام': return total + 3;
+      default: return total;
+    }
+  }, 0);
+
+  return {
+    count: records.length,
+    totalDays: totalDays
+  };
 }
 
 // تحسين دالة تنسيق التاريخ
