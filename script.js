@@ -1,5 +1,54 @@
 // Google Apps Script URL
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxmykLueUWvbyBWhCF0KHKLexK4WSexmCE1zWvTk5G6EGBFRGvH1VD0OLtWousfrWxYIw/exec';
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxEdLGwroX-SFn40JBMpVJBJhuqi23hwFzuThwpbkopEo5az3FmKWU4pjy_p5U3oDeWiQ/exec';
+
+// Show Message Function
+function showMessage(message, type = 'success') {
+    // إنشاء عناصر الرسالة
+    const overlay = document.createElement('div');
+    overlay.className = 'message-overlay';
+    
+    const messageBox = document.createElement('div');
+    messageBox.className = `message-box ${type}`;
+    
+    const messageContent = document.createElement('div');
+    messageContent.className = 'message-content';
+    messageContent.textContent = message;
+    
+    const closeButton = document.createElement('button');
+    closeButton.className = 'close-btn';
+    closeButton.textContent = 'Close';
+    
+    // تجميع العناصر
+    messageBox.appendChild(messageContent);
+    messageBox.appendChild(closeButton);
+    
+    // إضافة العناصر للصفحة
+    document.body.appendChild(overlay);
+    document.body.appendChild(messageBox);
+    
+    // إظهار الرسالة
+    setTimeout(() => {
+        overlay.style.display = 'block';
+        messageBox.style.display = 'block';
+    }, 100);
+    
+    // إغلاق الرسالة
+    const closeMessage = () => {
+        overlay.style.display = 'none';
+        messageBox.style.display = 'none';
+        setTimeout(() => {
+            document.body.removeChild(overlay);
+            document.body.removeChild(messageBox);
+        }, 300);
+    };
+    
+    // إضافة مستمعي الأحداث
+    closeButton.onclick = closeMessage;
+    overlay.onclick = closeMessage;
+    
+    // إغلاق تلقائي بعد 3 ثواني
+    setTimeout(closeMessage, 3000);
+}
 
 // Toggle password visibility
 function togglePassword() {
@@ -24,21 +73,134 @@ function checkLoginState() {
         document.getElementById('loginForm').style.display = 'none';
         document.querySelector('.container').style.display = 'block';
         
-        // Display branch name in all places
-        document.querySelectorAll('.userBranchDisplay').forEach(element => {
-            element.textContent = loggedInBranch;
-        });
-        document.getElementById('userBranchDisplay').textContent = loggedInBranch;
-        
-        // Load employee data for selected branch automatically
-        loadEmployeesForManagement(loggedInBranch);
-        loadEmployeesByBranch(logloggedInBranch);
-        loadEmployeesForEvaluation(logloggedInBranch);
-        loadEmployeesForPenalty(loggedInBranch);
+        // عرض القائمة المنسدلة للفروع إذا كان المستخدم يملك صلاحية All Branches
+        if (loggedInBranch === 'All Branches') {
+            document.getElementById('branchSelector').style.display = 'block';
+            const selectedBranch = localStorage.getItem('selectedBranch');
+            if (selectedBranch) {
+                // تحديث القائمة المنسدلة بالفرع المحدد
+                document.getElementById('branchSelect').value = selectedBranch;
+                // تحديث جميع النماذج بالفرع المحدد
+                updateAllForms(selectedBranch);
+            }
+        } else {
+            document.getElementById('branchSelector').style.display = 'none';
+            document.querySelectorAll('.userBranchDisplay').forEach(element => {
+                element.textContent = loggedInBranch;
+            });
+            updateAllForms(loggedInBranch);
+        }
     } else {
         document.getElementById('loginForm').style.display = 'flex';
         document.querySelector('.container').style.display = 'none';
     }
+}
+
+// دالة جديدة لتحميل قائمة الفروع
+async function loadBranches() {
+    try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getBranches`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const branchSelect = document.getElementById('branchSelect');
+            branchSelect.innerHTML = '<option value="">Select the branch</option>';
+            
+            data.branches.forEach(branch => {
+                if (branch !== 'All Branches') {
+                    const option = document.createElement('option');
+                    option.value = branch;
+                    option.textContent = branch;
+                    branchSelect.appendChild(option);
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading branches:', error);
+    }
+}
+
+// دالة جديدة للتعامل مع تغيير الفرع
+function handleBranchChange(selectedBranch) {
+    if (!selectedBranch) return;
+    
+    // تحديث الفرع المحدد في التخزين المحلي
+    localStorage.setItem('selectedBranch', selectedBranch);
+    
+    // تحديث عرض اسم الفرع في جميع النماذج
+    document.querySelectorAll('.userBranchDisplay').forEach(element => {
+        element.textContent = selectedBranch;
+    });
+    
+    // تحديث النموذج الحالي المفتوح
+    updateCurrentForm(selectedBranch);
+}
+
+// دالة جديدة لتحديث النموذج الحالي
+function updateCurrentForm(branch) {
+    const forms = {
+        'addEmployeeForm': loadEmployeesForManagement,
+        'attendanceForm': loadEmployeesByBranch,
+        'evaluationForm': loadEmployeesForEvaluation,
+        'penaltyForm': loadEmployeesForPenalty,
+        'bestEmployeeReport': loadBestEmployee,
+        'employeeReportForm': loadEmployeesForReport
+    };
+
+    // تحديث عرض الفرع في جميع الأماكن
+    document.querySelectorAll('.userBranchDisplay').forEach(element => {
+        element.textContent = branch;
+    });
+    document.getElementById('empBranch').value = branch;
+
+    for (const [formId, updateFunction] of Object.entries(forms)) {
+        const form = document.getElementById(formId);
+        if (form && form.style.display !== 'none') {
+            showMessage(`Change for branch ${branch}`, 'success');
+            // إضافة مؤشر التحميل
+            form.innerHTML = `
+                <div class="loading-overlay">
+                    <div class="loading-container">
+                        <div class="loading-circle"></div>
+                        <div class="loading-text">Loading data...</div>
+                    </div>
+                </div>` + form.innerHTML;
+            
+            // تحديث البيانات
+            updateFunction(branch);
+            
+            // إزالة مؤشر التحميل بعد ثانية
+            setTimeout(() => {
+                const overlay = form.querySelector('.loading-overlay');
+                if (overlay) {
+                    overlay.remove();
+                }
+            }, 1000);
+            
+            break;
+        }
+    }
+}
+
+// دالة جديدة لتحديث جميع النماذج
+function updateAllForms(branch) {
+    // تحديث قائمة الموظفين في نموذج إدارة الموظفين
+    loadEmployeesForManagement(branch);
+    
+    // تحديث قائمة الحضور
+    loadEmployeesByBranch(branch);
+    
+    // تحديث قائمة التقييم
+    loadEmployeesForEvaluation(branch);
+    
+    // تحديث قائمة الجزاءات
+    loadEmployeesForPenalty(branch);
+    
+    // تحديث قائمة التقارير
+    loadEmployeesForReport(branch);
+    
+    // تحديث تقرير أفضل موظف
+    loadBestEmployee(branch);
 }
 
 // Handle login submission
@@ -66,6 +228,9 @@ async function handleLoginSubmit(event) {
         
         if (data.success) {
             localStorage.setItem('userBranch', data.branch);
+            if (data.branch === 'All Branches') {
+                localStorage.setItem('isAdmin', 'true');
+            }
             checkLoginState();
             errorDiv.style.display = 'none';
         } else {
@@ -89,7 +254,7 @@ let sessionTimeout;
 
 // Logout function
 function logout() {
-    // Clear all data from localStorage
+    // Clear ALL data from localStorage
     localStorage.clear();
     
     // Stop the session timer
@@ -110,32 +275,32 @@ function logout() {
     }
 
     // Reset all form containers to empty state
+    resetAllForms();
+    
+    // Hide all forms
+    hideAllForms();
+    
+    // Force page reload to ensure complete reset
+    window.location.reload();
+}
+
+// Helper function to reset all forms
+function resetAllForms() {
     const resetElements = {
-        // Employee management
         'employeesListView': '<div class="no-data">No employees data</div>',
         'employeeForm': '',
-        
-        // Attendance
         'employeesList': '<div class="no-data">No attendance data</div>',
-        
-        // Evaluation
         'employeesEvaluationList': '<div class="no-data">No evaluation data</div>',
-        
-        // Penalty
         'penaltyEmployeeSelect': '<option value="">Select employee</option>',
         'penaltyReason': '',
         'penaltyAmount': '',
-        
-        // Reports
         'reportEmployeeSelect': '<option value="">Select employee</option>',
         'reportType': '',
         'reportResults': '',
-        
-        // Best Employee
-        'bestEmployeeData': '<div class="no-data">No best employee data</div>'
+        'bestEmployeeData': '<div class="no-data">No best employee data</div>',
+        'branchSelect': '<option value="">Select Branch</option>'
     };
 
-    // Apply resets
     Object.entries(resetElements).forEach(([id, content]) => {
         const element = document.getElementById(id);
         if (element) {
@@ -153,18 +318,6 @@ function logout() {
     document.querySelectorAll('.userBranchDisplay').forEach(element => {
         element.textContent = '';
     });
-
-    // Hide all forms
-    hideAllForms();
-
-    // Reset evaluation stars if they exist
-    document.querySelectorAll('.star-rating').forEach(container => {
-        container.setAttribute('data-rating', '0');
-        container.querySelectorAll('.star').forEach(star => {
-            star.classList.remove('active');
-            star.textContent = '☆';
-        });
-    });
 }
 
 // Reset session timer
@@ -172,7 +325,7 @@ function resetSessionTimer() {
     clearTimeout(sessionTimeout);
     sessionTimeout = setTimeout(() => {
         logout();
-        alert('Session expired. Please login again.');
+        showMessage('Session expired. Please login again.', 'error');
     }, 15 * 60 * 1000); // 15 minutes
 }
 
@@ -186,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const timeElapsed = Date.now() - parseInt(loginTime);
         if (timeElapsed > 15 * 60 * 1000) { // 15 minutes
             logout();
-            alert('Session expired. Please login again.');
+            showMessage('انتهت الجلسة. الرجاء تسجيل الدخول مرة أخرى', 'error');
         } else {
             resetSessionTimer();
         }
@@ -227,7 +380,7 @@ function initializeStarRatings() {
 function validateAttendanceSelection() {
     const selectedCount = document.querySelectorAll('input[type="radio"]:checked').length;
     if (selectedCount === 0) {
-        alert('Please select attendance status for at least one employee');
+        showMessage('Please select attendance status for at least one employee', 'error');
         return false;
     }
     return true;
@@ -246,7 +399,7 @@ function loadEmployeesForManagement(branch) {
         <div class="loading-overlay">
             <div class="loading-container">
                 <div class="loading-circle"></div>
-                <div class="loading-text">جاري تحميل بيانات الموظفين...</div>
+                <div class="loading-text">Loading employee data...</div>
             </div>
         </div>
     `;
@@ -289,12 +442,12 @@ function loadEmployeesForManagement(branch) {
                     </div>`;
                 employeesListView.innerHTML = tableHTML;
             } else {
-                employeesListView.innerHTML = '<p class="no-data">لا يوجد موظفين في هذا الفرع</p>';
+                employeesListView.innerHTML = '<p class="no-data">There are no employees in this branch</p>';
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            employeesListView.innerHTML = '<p class="error-message">حدث خطأ في تحميل بيانات الموظفين</p>';
+            employeesListView.innerHTML = '<p class="error-message">Error loading employee data</p>';
         });
 }
 
@@ -311,7 +464,7 @@ function loadEmployeesForEvaluation(branch) {
         <div class="loading-overlay">
             <div class="loading-container">
                 <div class="loading-circle"></div>
-                <div class="loading-text">جاري تحميل بيانات التقييم...</div>
+                <div class="loading-text">Loading evaluation data...</div>
             </div>
         </div>
     `;
@@ -328,12 +481,12 @@ function loadEmployeesForEvaluation(branch) {
                 });
                 initializeStarRatings();
             } else {
-                container.innerHTML = '<div class="no-data">لا يوجد موظفين في هذا الفرع</div>';
+                container.innerHTML = '<div class="no-data">There are no employees in this branch</div>';
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            container.innerHTML = '<div class="error">حدث خطأ في تحميل البيانات</div>';
+            container.innerHTML = '<div class="error">Error loading data</div>';
         });
 }
 
@@ -358,10 +511,7 @@ function loadEmployeesForPenalty(branch) {
                 });
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error loading employee data');
-        });
+
 }
 
 // عرض وإخفاء النماذج
@@ -372,53 +522,75 @@ function hideAllForms() {
 
 function showAddEmployee() {
     hideAllForms();
-    document.getElementById('addEmployeeForm').style.display = 'block';
-    const branch = localStorage.getItem('userBranch');
+    const addEmployeeForm = document.getElementById('addEmployeeForm');
+    const employeeForm = document.getElementById('employeeForm');
+    const toggleButton = document.getElementById('toggleAddEmployeeForm');
     
-    // Set the branch value in the form
-    document.getElementById('empBranch').value = branch;
+    // تحديث عرض الفرع أولاً
+    const selectedBranch = localStorage.getItem('selectedBranch') || localStorage.getItem('userBranch');
+    document.getElementById('empBranch').value = selectedBranch;
+    document.querySelectorAll('.userBranchDisplay').forEach(element => {
+        element.textContent = selectedBranch;
+    });
     
-    loadEmployeesForManagement(branch);
+    // عرض النموذج وتحميل البيانات
+    addEmployeeForm.style.display = 'block';
+    employeeForm.style.display = 'none';
+    toggleButton.textContent = 'Add New Employee';
+    
+    // تحميل قائمة الموظفين
+    loadEmployeesForManagement(selectedBranch);
+
+    // إضافة مستمع الحدث للزر
+    toggleButton.onclick = function() {
+        if (employeeForm.style.display === 'none') {
+            employeeForm.style.display = 'block';
+            this.textContent = 'Cancel';
+            // تأكد من تحديث قيمة الفرع في النموذج
+            document.getElementById('empBranch').value = selectedBranch;
+        } else {
+            employeeForm.style.display = 'none';
+            this.textContent = 'Add New Employee';
+            employeeForm.reset();
+            document.getElementById('empBranch').value = selectedBranch;
+        }
+    };
 }
 
 function showAttendance() {
     hideAllForms();
     document.getElementById('attendanceForm').style.display = 'block';
-    const branch = localStorage.getItem('userBranch');
-    loadEmployeesByBranch(branch);
+    const selectedBranch = localStorage.getItem('selectedBranch') || localStorage.getItem('userBranch');
+    loadEmployeesByBranch(selectedBranch);
 }
 
 function showEvaluation() {
     hideAllForms();
     document.getElementById('evaluationForm').style.display = 'block';
-    const branch = localStorage.getItem('userBranch');
-    loadEmployeesForEvaluation(branch);
+    const selectedBranch = localStorage.getItem('selectedBranch') || localStorage.getItem('userBranch');
+    loadEmployeesForEvaluation(selectedBranch);
     initializeStarRatings();
 }
 
 function showPenalty() {
     hideAllForms();
     document.getElementById('penaltyForm').style.display = 'block';
-    const branch = localStorage.getItem('userBranch');
-    loadEmployeesForPenalty(branch);
+    const selectedBranch = localStorage.getItem('selectedBranch') || localStorage.getItem('userBranch');
+    loadEmployeesForPenalty(selectedBranch);
 }
 
 function showBestEmployee() {
     hideAllForms();
     document.getElementById('bestEmployeeReport').style.display = 'block';
-    const branch = localStorage.getItem('userBranch');
-    if (!branch) {
-        alert('الرجاء تسجيل الدخول أولاً');
-        return;
-    }
-    loadBestEmployee(branch);
+    const selectedBranch = localStorage.getItem('selectedBranch') || localStorage.getItem('userBranch');
+    loadBestEmployee(selectedBranch);
 }
 
 function showEmployeeReport() {
     hideAllForms();
     document.getElementById('employeeReportForm').style.display = 'block';
-    const branch = localStorage.getItem('userBranch');
-    loadEmployeesForReport(branch);
+    const selectedBranch = localStorage.getItem('selectedBranch') || localStorage.getItem('userBranch');
+    loadEmployeesForReport(selectedBranch);
 }
 
 function createEmployeeEvaluationCard(employee) {
@@ -443,7 +615,7 @@ function createEmployeeEvaluationCard(employee) {
                 </div>
             </div>
             <div class="criteria-item">
-                <label>المظهر العام</label>
+                <label>Appearance</label>
                 <div class="star-rating" data-criteria="appearance" data-rating="0">
                     <span class="star" data-value="1">☆</span>
                     <span class="star" data-value="2">☆</span>
@@ -453,7 +625,7 @@ function createEmployeeEvaluationCard(employee) {
                 </div>
             </div>
             <div class="criteria-item">
-                <label>العمل الجماعي</label>
+                <label>Teamwork</label>
                 <div class="star-rating" data-criteria="teamwork" data-rating="0">
                     <span class="star" data-value="1">☆</span>
                     <span class="star" data-value="2">☆</span>
@@ -463,7 +635,7 @@ function createEmployeeEvaluationCard(employee) {
                 </div>
             </div>
             <div class="criteria-item">
-                <label>الالتزام بالمواعيد</label>
+                <label>Punctuality</label>
                 <div class="star-rating" data-criteria="punctuality" data-rating="0">
                     <span class="star" data-value="1">☆</span>
                     <span class="star" data-value="2">☆</span>
@@ -488,7 +660,7 @@ function submitAllEvaluations() {
     loadingOverlay.innerHTML = `
         <div class="loading-container">
             <div class="loading-circle"></div>
-            <div class="loading-text">جاري حفظ التقييمات...</div>
+            <div class="loading-text">Saving reviews...</div>
         </div>
     `;
     container.appendChild(loadingOverlay);
@@ -518,7 +690,7 @@ function submitAllEvaluations() {
     });
     
     if (evaluations.length === 0) {
-        alert('الرجاء تقييم موظف واحد على الأقل');
+        showMessage('الرجاء تقييم موظف واحد على الأقل', 'error');
         container.querySelector('.loading-overlay')?.remove();
         evaluationsList.style.opacity = '1';
         saveButton.disabled = false;
@@ -532,7 +704,7 @@ function submitAllEvaluations() {
     );
 
     if (invalidEvaluations.length > 0) {
-        alert('الرجاء إكمال جميع معايير التقييم لكل موظف تم اختياره');
+        showMessage('Please complete all evaluation criteria for each selected employee', 'error');
         container.querySelector('.loading-overlay')?.remove();
         evaluationsList.style.opacity = '1';
         saveButton.disabled = false;
@@ -558,10 +730,10 @@ function submitAllEvaluations() {
         saveButton.disabled = false;
 
         if (data.success) {
-            alert('تم حفظ التقييمات بنجاح');
+            showMessage('Reviews have been saved successfully', 'success');
             loadEmployeesForEvaluation();
         } else {
-            alert('Error saving evaluations');
+            showMessage('Error saving evaluations', 'error');
         }
     })
     .catch(error => {
@@ -571,7 +743,7 @@ function submitAllEvaluations() {
         saveButton.disabled = false;
         
         console.error('Error:', error);
-        alert('System error occurred');
+        showMessage('System error occurred', 'error');
     });
 }
 
@@ -599,7 +771,7 @@ document.getElementById('employeeForm').addEventListener('submit', async functio
     loadingOverlay.innerHTML = `
         <div class="loading-container">
             <div class="loading-circle"></div>
-            <div class="loading-text">جاري حفظ بيانات الموظف...</div>
+            <div class="loading-text">Saving employee data...</div>
         </div>
     `;
     formContainer.appendChild(loadingOverlay);
@@ -615,24 +787,21 @@ document.getElementById('employeeForm').addEventListener('submit', async functio
         });
         
         const result = await response.text();
-        console.log('Response:', result);
-        
         // إزالة حالة التحميل
         formContainer.querySelector('.loading-overlay')?.remove();
         form.style.opacity = '1';
-        
-        alert('Employee added successfully');
+
+        showMessage('Employee added successfully', 'success');
         document.getElementById('employeeForm').reset();
         
         // إعادة تحميل قائمة الموظفين
         const branch = localStorage.getItem('userBranch');
         loadEmployeesForManagement(branch);
     } catch (error) {
-        console.error('Error:', error);
         // إزالة حالة التحميل
         formContainer.querySelector('.loading-overlay')?.remove();
         form.style.opacity = '1';
-        alert('Error adding employee');
+        showMessage('حدث خطأ أثناء إضافة الموظف', 'error');
     }
 });
 
@@ -648,7 +817,7 @@ function loadEmployeesByBranch(branch) {
         <div class="loading-overlay">
             <div class="loading-container">
                 <div class="loading-circle"></div>
-                <div class="loading-text">جاري تحميل البيانات...</div>
+                <div class="loading-text">Loading data...</div>
             </div>
         </div>
     `;
@@ -656,10 +825,8 @@ function loadEmployeesByBranch(branch) {
     fetch(`${GOOGLE_SCRIPT_URL}?action=getEmployees&branch=${branch}`)
         .then(response => response.json())
         .then(data => {
-            console.log('Received data:', data); // للتحقق من البيانات
-
             if (!data.success) {
-                throw new Error(data.message || 'حدث خطأ في تحميل البيانات');
+                throw new Error(data.message || 'Error loading data');
             }
 
             if (!data.employees || data.employees.length === 0) {
@@ -704,7 +871,7 @@ function loadEmployeesByBranch(branch) {
             employeesList.innerHTML = html;
         })
         .catch(error => {
-            console.error('Error:', error);
+            showMessage('حدث خطأ أثناء تحميل بيانات الموظفين', 'error');
             employeesList.innerHTML = '<div class="error">Error loading employee data</div>';
         });
 }
@@ -719,18 +886,22 @@ async function saveAttendance() {
     // التحقق من اختيار الفرع
     const branch = localStorage.getItem('userBranch');
     if (!branch) {
-        alert('الرجاء اختيار الفرع أولاً');
+        showMessage('الرجاء اختيار الفرع أولاً', 'error');
         return;
     }
 
     // التحقق من وجود موظفين
     if (!employeesList) {
-        alert('لا يوجد موظفين لتسجيل حضورهم');
+        showMessage('لا يوجد موظفين لتسجيل حضورهم', 'error');
         return;
     }
 
     // التحقق من اختيار حالة الحضور
-    if (!validateAttendanceSelection()) return;
+    const selectedCount = document.querySelectorAll('input[type="radio"]:checked').length;
+    if (selectedCount === 0) {
+        showMessage('الرجاء اختيار حالة الحضور لموظف واحد على الأقل', 'error');
+        return;
+    }
 
     // إظهار حالة التحميل
     const loadingOverlay = document.createElement('div');
@@ -738,7 +909,7 @@ async function saveAttendance() {
     loadingOverlay.innerHTML = `
         <div class="loading-container">
             <div class="loading-circle"></div>
-            <div class="loading-text">جاري حفظ سجل الحضور...</div>
+            <div class="loading-text">Saving attendance record...</div>
         </div>
     `;
     attendanceForm.appendChild(loadingOverlay);
@@ -781,11 +952,11 @@ async function saveAttendance() {
         saveButton.disabled = false;
 
         if (data.success) {
-            alert('تم تسجيل الحضور بنجاح');
+            showMessage('Attendance recorded successfully', 'success');
             // إعادة تحميل البيانات بعد النجاح
             await loadEmployeesByBranch(branch);
         } else {
-            alert('حدث خطأ أثناء تسجيل الحضور');
+            showMessage('Error recording attendance', 'error');
         }
     } catch (error) {
         // إزالة حالة التحميل في حالة الخطأ
@@ -794,7 +965,7 @@ async function saveAttendance() {
         saveButton.disabled = false;
         
         console.error('Error:', error);
-        alert('حدث خطأ في النظام');
+        showMessage('A system error has occurred', 'error');
     }
 }
 
@@ -827,7 +998,7 @@ function initializeStarRatings() {
 function submitEvaluation() {
     const employeeId = document.getElementById('evalEmployeeSelect').value;
     if (!employeeId) {
-        alert('الرجاء اختيار موظف');
+        showMessage('الرجاء اختيار موظف', 'error');
         return;
     }
 
@@ -850,14 +1021,14 @@ function submitEvaluation() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('تم حفظ التقييم بنجاح');
+            showMessage('The evaluation has been saved successfully', 'success');
         } else {
-            alert('حدث خطأ أثناء حفظ التقييم');
+            showMessage('Error saving evaluation', 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('حدث خطأ في النظام');
+        showMessage('حدث خطأ في النظام', 'error');
     });
 }
 
@@ -870,7 +1041,7 @@ function submitPenalty() {
     const saveButton = form.querySelector('button');
 
     if (!employeeId || !reason || !deductionPeriod) {
-        alert('Please fill in all fields');
+        showMessage('Please fill in all fields', 'error');
         return;
     }
 
@@ -880,7 +1051,7 @@ function submitPenalty() {
     loadingOverlay.innerHTML = `
         <div class="loading-container">
             <div class="loading-circle"></div>
-            <div class="loading-text">جاري حفظ الجزاء...</div>
+            <div class="loading-text">The penalty is being saved...</div>
         </div>
     `;
     form.appendChild(loadingOverlay);
@@ -911,11 +1082,11 @@ function submitPenalty() {
         saveButton.disabled = false;
 
         if (data.success) {
-            alert('Penalty added successfully');
+            showMessage('Penalty added successfully', 'success');
             document.getElementById('penaltyReason').value = '';
             document.getElementById('penaltyAmount').value = '';
         } else {
-            alert('Error adding penalty');
+            showMessage('Error adding penalty', 'error');
         }
     })
     .catch(error => {
@@ -925,7 +1096,7 @@ function submitPenalty() {
         saveButton.disabled = false;
 
         console.error('Error:', error);
-        alert('حدث خطأ في النظام');
+        showMessage('A system error has occurred', 'error');
     });
 }
 
@@ -937,7 +1108,7 @@ function loadBestEmployee(branch) {
         <div class="loading-overlay">
             <div class="loading-container">
                 <div class="loading-circle"></div>
-                <div class="loading-text">Loading best employee data...</div>
+                <div class="loading-text">Loading Best Employee Data...</div>
             </div>
         </div>
     `;
@@ -945,77 +1116,92 @@ function loadBestEmployee(branch) {
     fetch(`${GOOGLE_SCRIPT_URL}?action=getBestEmployee&branch=${encodeURIComponent(branch)}`)
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.employee) {
-                const attendanceRate = parseFloat(data.employee.attendanceRate).toFixed(2);
-                const evaluationRate = parseFloat(data.employee.evaluationRate).toFixed(2);
-                const finalScore = parseFloat(data.employee.finalScore).toFixed(2);
-
-                bestEmployeeData.innerHTML = `
-                    <div class="best-employee-card">
-                        <h3>Best Employee for ${new Date().toLocaleString('en-US', { month: 'long' })}</h3>
-                        <div class="employee-details">
-                            <div class="stat-group">
-                                <div class="stat-item">
-                                    <span class="stat-label">Name:</span>
-                                    <span class="stat-value">${data.employee.name}</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Branch:</span>
-                                    <span class="stat-value">${data.employee.branch}</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">Position:</span>
-                                    <span class="stat-value">${data.employee.title}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="ratings-section">
-                            <h4>Performance Details</h4>
-                            <div class="rating-items">
-                                <div class="rating-item">
-                                    <div class="rating-header">
-                                        <span class="rating-label">Attendance Rate (40%)</span>
-                                        <span class="rating-value">${attendanceRate}%</span>
-                                    </div>
-                                    <div class="progress-bar">
-                                        <div class="progress" style="width: ${attendanceRate}%"></div>
-                                    </div>
-                                </div>
-                                <div class="rating-item">
-                                    <div class="rating-header">
-                                        <span class="rating-label">Evaluation Rate (60%)</span>
-                                        <span class="rating-value">${evaluationRate}%</span>
-                                    </div>
-                                    <div class="progress-bar">
-                                        <div class="progress" style="width: ${evaluationRate}%"></div>
-                                    </div>
-                                </div>
-                                ${data.employee.hasPenalty ? `
-                                    <div class="penalty-warning">
-                                        <i class="fas fa-exclamation-triangle"></i>
-                                        Penalty deduction applied
-                                    </div>
-                                ` : ''}
-                                <div class="final-score">
-                                    <div class="rating-header">
-                                        <span class="rating-label">Final Score</span>
-                                        <span class="rating-value">${finalScore}%</span>
-                                    </div>
-                                    <div class="progress-bar">
-                                        <div class="progress" style="width: ${finalScore}%"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            if (data.success && data.employees && data.employees.length > 0) {
+                let html = `
+                    <h2 class="top-employees-title">
+                        Best Employees for ${new Date().toLocaleString('en-US', { month: 'long' })}
+                    </h2>
+                    <div class="top-employees-grid">
                 `;
+
+                data.employees.forEach((employee, index) => {
+                    const attendanceRate = parseFloat(employee.attendanceRate).toFixed(2);
+                    const evaluationRate = parseFloat(employee.evaluationRate).toFixed(2);
+                    const penaltyDeduction = parseFloat(employee.penaltyDeduction).toFixed(2);
+                    const finalScore = parseFloat(employee.finalScore).toFixed(2);
+                    
+                    html += `
+                        <div class="best-employee-card ${index === 0 ? 'gold' : ''}">
+                            ${index === 0 ? '<div class="crown">👑</div>' : ''}
+                            <div class="rank-badge">${index === 0 ? 'The Best🤞' : `Rank ${index + 1} 💖` }</div>
+                            <h3>Best Monthly</h3>
+                            <div class="employee-details">
+                                <div class="stat-group">
+                                    <div class="stat-item">
+                                        <span class="stat-label">Name:</span>
+                                        <span class="stat-value">${employee.name}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Branch:</span>
+                                        <span class="stat-value">${employee.branch}</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">Job Title:</span>
+                                        <span class="stat-value">${employee.title}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ratings-section">
+                                <h4>Evaluation Details</h4>
+                                <div class="rating-items">
+                                    <div class="rating-item">
+                                        <div class="rating-header">
+                                            <span class="rating-label">Attendance Rate (50%)</span>
+                                            <span class="rating-value">${attendanceRate}%</span>
+                                        </div>
+                                        <div class="progress-bar">
+                                            <div class="progress" style="width: ${attendanceRate}%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="rating-item">
+                                        <div class="rating-header">
+                                            <span class="rating-label">Average Evaluation (50%)</span>
+                                            <span class="rating-value">${evaluationRate}%</span>
+                                        </div>
+                                        <div class="progress-bar">
+                                            <div class="progress" style="width: ${evaluationRate}%"></div>
+                                        </div>
+                                    </div>
+                                    ${employee.hasPenalty ? `
+                                        <div class="penalty-warning">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            Penalty Deduction: ${penaltyDeduction}%
+                                        </div>
+                                    ` : ''}
+                                    <div class="final-score">
+                                        <div class="rating-header">
+                                            <span class="rating-label">Final Score</span>
+                                            <span class="rating-value">${finalScore}%</span>
+                                        </div>
+                                        <div class="progress-bar">
+                                            <div class="progress" style="width: ${finalScore}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                bestEmployeeData.innerHTML = html;
             } else {
-                bestEmployeeData.innerHTML = '<div class="no-data">No data available for this month</div>';
+                bestEmployeeData.innerHTML = '<div class="no-data">No Data Available for This Month</div>';
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            bestEmployeeData.innerHTML = '<div class="error-message">Error loading data</div>';
+            bestEmployeeData.innerHTML = '<div class="error-message">Error Loading Data</div>';
         });
 }
 
@@ -1028,12 +1214,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (toggleButton && employeeForm) {
         toggleButton.addEventListener('click', function() {
-            if (employeeForm.style.display === 'none') {
-                employeeForm.style.display = 'block';
-                toggleButton.textContent = 'Cancel';
-            } else {
-                employeeForm.style.display = 'none';
-                toggleButton.textContent = 'Add New Employee';
+            const isHidden = employeeForm.style.display === 'none';
+            employeeForm.style.display = isHidden ? 'block' : 'none';
+            toggleButton.textContent = isHidden ? 'Cancel' : 'Add New Employee';
+            
+            // مسح البيانات عند الإغلاق
+            if (!isHidden) {
+                employeeForm.reset();
             }
         });
     }
@@ -1060,25 +1247,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 async function deleteEmployee(code) {
-    if (confirm('هل أنت متأكد من حذف هذا الموظف؟')) {
+    if (confirm('Are you sure you want to delete this employee?')) {
         try {
-            console.log('Attempting to delete employee with code:', code);
+            showMessage('Loading Delete Employee...', 'success');
 
             const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=deleteEmployee&data=${encodeURIComponent(code)}`, {
                 method: 'POST'
             });
-
-            console.log('Delete response received');
             
             // إعادة تحميل قائمة الموظفين بعد فترة قصيرة للتأكد من اكتمال العملية
             setTimeout(() => {
-
-                alert('تم حذف الموظف بنجاح');
+                showMessage('Employee deleted successfully', 'success');
             }, 1000);
 
         } catch (error) {
-            console.error('Error:', error);
-            alert('حدث خطأ في النظام: ' + error.message);
+            showMessage('Error: ' + error.message, 'error');
         }
     }
 }
@@ -1102,10 +1285,7 @@ function loadEmployeesForReport(branch) {
                 });
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('حدث خطأ في تحميل بيانات الموظفين');
-        });
+
 }
 
 // إنشاء التقرير
@@ -1116,7 +1296,7 @@ async function generateReport() {
     const resultsContainer = document.getElementById('reportResults');
     
     if (!employeeId || !reportType || !reportMonth) {
-        alert('Please select employee, report type and month');
+        showMessage('Please select an employee, report type, and month', 'error');
         return;
     }
 
@@ -1125,7 +1305,7 @@ async function generateReport() {
         <div class="loading-overlay">
             <div class="loading-container">
                 <div class="loading-circle"></div>
-                <div class="loading-text">جاري تحميل التقرير...</div>
+                <div class="loading-text">Loading report...</div>
             </div>
         </div>
     `;
@@ -1159,7 +1339,7 @@ async function generateReport() {
             resultsContainer.innerHTML = `<div class="error-message">Error loading report: ${data.error}</div>`;
         }
     } catch (error) {
-        console.error('Error:', error);
+        showMessage('حدث خطأ أثناء تحميل التقرير', 'error');
         resultsContainer.innerHTML = '<div class="error-message">Error loading report</div>';
     }
 }
@@ -1258,8 +1438,8 @@ function displayAttendanceReport(data) {
 // دالة لحساب إحصائيات الحضور
 function calculateAttendanceStats(data) {
     const presentDays = data.filter(record => record.status === 'Present').length;
-    const absentDays = data.filter(record => record.status === 'Absent' || record.status === 'Unauth Leave').length;
-    const leaveDays = data.filter(record => record.status === 'vacation').length;
+    const absentDays = data.filter(record => record.status === 'Absent' ).length;
+    const leaveDays = data.filter(record => record.status === 'vacation'|| record.status === 'Leave a vacation').length;
     const totalDays = data.length;
     
     return {
@@ -1479,6 +1659,7 @@ function calculatePenaltyStats(data) {
         'ربع يوم': 0.25,
         'نصف يوم': 0.5,
         'يوم': 1,
+        'يومين': 2,
         'ثلاثة ايام': 3
     };
     
@@ -1492,26 +1673,333 @@ function calculatePenaltyStats(data) {
     };
 }
 
-// دالة لحساب إحصائيات الجزاءات
-function calculatePenaltyStats(data) {
-    const totalPenalties = data.length;
-    
-    // حساب إجمالي أيام الخصم
-    const daysMapping = {
-        'ربع يوم': 0.25,
-        'نصف يوم': 0.5,
-        'يوم': 1,
-        'ثلاثة ايام': 3
-    };
-    
-    const totalDays = data.reduce((sum, record) => {
-        return sum + (daysMapping[record.amount] || 0);
-    }, 0);
-
-    return {
-        totalPenalties,
-        totalDays: totalDays.toFixed(2)
-    };
+// تهيئة النجوم
+function initializeStarRatings() {
+    document.querySelectorAll('.star-rating').forEach(container => {
+        container.querySelectorAll('.star').forEach(star => {
+            star.addEventListener('click', function() {
+                const value = this.getAttribute('data-value');
+                const parent = this.closest('.star-rating');
+                parent.setAttribute('data-rating', value);
+                
+                // تحديث حالة النجوم
+                parent.querySelectorAll('.star').forEach(s => {
+                    if (s.getAttribute('data-value') <= value) {
+                        s.classList.add('active');
+                        s.textContent = '★';
+                    } else {
+                        s.classList.remove('active');
+                        s.textContent = '☆';
+                    }
+                });
+            });
+        });
+    });
 }
 
 
+
+
+
+// تهيئة زر التبديل لنموذج إضافة الموظفين
+document.addEventListener('DOMContentLoaded', function() {
+    // تهيئة زر التبديل لنموذج إضافة الموظف
+    const toggleButton = document.getElementById('toggleAddEmployeeForm');
+    const employeeForm = document.getElementById('employeeForm');
+    
+    if (toggleButton && employeeForm) {
+        toggleButton.addEventListener('click', function() {
+            const isHidden = employeeForm.style.display === 'none';
+            employeeForm.style.display = isHidden ? 'block' : 'none';
+            toggleButton.textContent = isHidden ? 'Cancel' : 'Add New Employee';
+            
+            // مسح البيانات عند الإغلاق
+            if (!isHidden) {
+                employeeForm.reset();
+            }
+        });
+    }
+
+    // تحديث قوائم الموظفين عند تغيير الفرع
+    const branchSelect = document.getElementById('branchSelect');
+    const evalBranchSelect = document.getElementById('evalBranchSelect');
+    const penaltyBranchSelect = document.getElementById('penaltyBranchSelect');
+    const empBranchSelect = document.getElementById('empBranchSelect');
+
+    if (branchSelect) {
+        branchSelect.addEventListener('change', () => loadEmployeesByBranch(branchSelect.value));
+    }
+    if (evalBranchSelect) {
+        evalBranchSelect.addEventListener('change', () => loadEmployeesForEvaluation(evalBranchSelect.value));
+    }
+    if (penaltyBranchSelect) {
+        penaltyBranchSelect.addEventListener('change', () => loadEmployeesForPenalty(penaltyBranchSelect.value));
+    }
+    if (empBranchSelect) {
+        empBranchSelect.addEventListener('change', () => loadEmployeesForManagement(empBranchSelect.value));
+    }
+});
+
+
+
+
+
+
+// دالة لتحديد النطاق الزمني في التقويم
+function highlightDateRange(startDate, endDate) {
+    // إضافة كلاس للأيام المحددة في التقويم
+    const datePickerCells = document.querySelectorAll('.ui-datepicker-calendar td');
+    datePickerCells.forEach(cell => {
+        const cellDate = new Date(cell.dataset.date);
+        if (cellDate >= startDate && cellDate <= endDate) {
+            cell.classList.add('selected-date-range');
+        }
+    });
+}
+
+// دالة لتحديث التقويم حسب المدة المختارة
+function updateCalendarRange(period) {
+    const today = new Date();
+    let startDate = new Date();
+    let endDate = new Date();
+
+    switch (period) {
+        case 'daily':
+            startDate = today;
+            endDate = today;
+            break;
+        case 'weekly':
+            // تحديد بداية الأسبوع (يوم الأحد)
+            startDate.setDate(today.getDate() - today.getDay());
+            // تحديد نهاية الأسبوع (يوم السبت)
+            endDate.setDate(startDate.getDate() + 6);
+            break;
+        case 'monthly':
+            // أول يوم في الشهر
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            // آخر يوم في الشهر
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            break;
+    }
+
+    // تحديث حقل التاريخ
+    document.getElementById('reportStartDate').value = startDate.toISOString().split('T')[0];
+    
+    // تحديث التقويم
+    highlightDateRange(startDate, endDate);
+    
+    return { startDate, endDate };
+}
+
+// تعديل دالة إنشاء التقرير الشامل
+async function generateComprehensiveReport() {
+    const period = document.getElementById('reportPeriod').value;
+    const { startDate, endDate } = updateCalendarRange(period);
+    const branch = document.querySelector('.userBranchDisplay').textContent;
+    const resultsContainer = document.getElementById('comprehensiveReportResults');
+
+    if (!period || !startDate) {
+        showMessage('Please select a period and start date', 'error');
+        return;
+    }
+
+    // عرض شاشة التحميل
+    resultsContainer.innerHTML = `
+        <div class="loading-overlay">
+            <div class="loading-container">
+                <div class="loading-circle"></div>
+                <div class="loading-text">Loading Comprehensive Report...</div>
+            </div>
+        </div>
+    `;
+
+    try {
+        const reportData = await fetchComprehensiveReportData(period, startDate, branch);
+        displayComprehensiveReport(reportData, period, startDate);
+    } catch (error) {
+        console.error('Error generating comprehensive report:', error);
+        showMessage('Error Generating Report', 'error');
+        resultsContainer.innerHTML = '<div class="error-message">Error Loading Report</div>';
+    }
+}
+
+// دالة جلب بيانات التقرير
+async function fetchComprehensiveReportData(period, startDate, branch) {
+    try {
+        const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getComprehensiveReport&period=${period}&startDate=${startDate}&branch=${encodeURIComponent(branch)}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Error fetching report data:', error);
+        throw error;
+    }
+}
+
+// دالة عرض التقرير الشامل
+function displayComprehensiveReport(data, period, startDate) {
+    const resultsContainer = document.getElementById('comprehensiveReportResults');
+    const periodText = getPeriodText(period);
+    const dateText = formatReportDate(startDate, period);
+
+    let html = `
+        <div class="comprehensive-report">
+            <div class="report-header">
+                <h3>Comprehensive report ${periodText} - ${dateText}</h3>
+            </div>
+            <div class="table-container">
+                <div class="table-responsive">
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th data-label="Code">Code</th>
+                                <th data-label="Name">Name</th>
+                                <th data-label="Title">Title</th>
+                                <th data-label="Present">Present</th>
+                                <th data-label="Absent">Absent</th>
+                                <th data-label="Vacations">Vacations</th>
+                                <th data-label="Cleanliness">Cleanliness</th>
+                                <th data-label="Appearance">Appearance</th>
+                                <th data-label="Teamwork">Teamwork</th>
+                                <th data-label="Punctuality">Punctuality</th>
+                                <th data-label="Penalties">Penalties</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+    `;
+
+    data.employees.forEach(employee => {
+        html += `
+            <tr>
+                <td data-label="Code">${employee.code}</td>
+                <td data-label="Name">${employee.name}</td>
+                <td data-label="Title">${employee.title}</td>
+                <td data-label="Present" class="present-cell">${employee.attendance.present}</td>
+                <td data-label="Absent" class="absent-cell">${employee.attendance.absent}</td>
+                <td data-label="Vacations" class="vacation-cell">${employee.attendance.vacation}</td>
+                <td data-label="Cleanliness" class="evaluation-cell">${employee.evaluations.cleanliness}</td>
+                <td data-label="Appearance" class="evaluation-cell">${employee.evaluations.appearance}</td>
+                <td data-label="Teamwork" class="evaluation-cell">${employee.evaluations.teamwork}</td>
+                <td data-label="Punctuality" class="evaluation-cell">${employee.evaluations.punctuality}</td>
+                <td data-label="Penalties" class="penalty-cell">${employee.penalties.totalDays}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="report-summary">
+                ${generateReportSummary(data)}
+            </div>
+        </div>
+    `;
+
+    resultsContainer.innerHTML = html;
+    
+    // إضافة مستمعات الأحداث للتفاعل على الأجهزة المحمولة
+    const table = resultsContainer.querySelector('table');
+    if (table) {
+        table.addEventListener('scroll', function(e) {
+            const headerCells = this.querySelectorAll('th');
+            const isScrolled = this.scrollLeft > 0;
+            headerCells.forEach(cell => {
+                cell.classList.toggle('sticky', isScrolled);
+            });
+        });
+    }
+}
+
+// دالة تنسيق التاريخ حسب نوع التقرير
+function formatReportDate(startDate, period) {
+    const date = new Date(startDate);
+    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    
+    switch (period) {
+        case 'daily':
+            return date.toLocaleDateString('EG', options);
+        case 'weekly':
+            const endDate = new Date(date);
+            endDate.setDate(date.getDate() + 6);
+            return `${date.toLocaleDateString('EG', options)} - ${endDate.toLocaleDateString('ar-EG', options)}`;
+        case 'monthly':
+            return date.toLocaleDateString('EG', { year: 'numeric', month: 'long' });
+        default:
+            return '';
+    }
+}
+
+// دالة الحصول على نص المدة
+function getPeriodText(period) {
+    const periods = {
+        'daily': 'daily',
+        'weekly': 'weekly',
+        'monthly': 'monthly'
+    };
+    return periods[period] || '';
+}
+
+// دالة حساب متوسط التقييم
+function calculateEvaluationAverage(evaluations) {
+    if (!evaluations || evaluations.length === 0) return 'لا يوجد تقييم';
+    
+    const sum = evaluations.reduce((acc, eval) => acc + eval.average, 0);
+    const avg = (sum / evaluations.length).toFixed(1);
+    return `${avg}/5`;
+}
+
+// دالة تحديد حالة الحضور وتصنيفها
+function getAttendanceStatusClass(attendance) {
+    if (!attendance) {
+        return { class: '', text: 'لا يوجد سجل' };
+    }
+
+    const statusClasses = {
+        'Present': { class: 'status-present', text: 'Present' },
+        'Absent': { class: 'status-absent', text: 'Absent' },
+        'vacation': { class: 'status-vacation', text: 'Vacation' },
+        'Leave a vacation': { class: 'status-vacation', text: 'Leave Vacation' }
+    };
+
+    return statusClasses[attendance] || { class: '', text: attendance };
+}
+
+// دالة إنشاء ملخص التقرير
+function generateReportSummary(data) {
+    const totalEmployees = data.employees.length;
+    const presentCount = data.employees.filter(emp => emp.attendance === 'Present').length;
+    const absentCount = data.employees.filter(emp => emp.attendance === 'Absent').length;
+    const vacationCount = data.employees.filter(emp => 
+        emp.attendance === 'vacation' || emp.attendance === 'Leave a vacation'
+    ).length;
+
+    return `
+
+    `;
+}
+
+// إضافة زر التقرير الشامل في القائمة
+function showComprehensiveReport() {
+    hideAllForms();
+    const reportForm = document.getElementById('comprehensiveReportForm');
+    reportForm.style.display = 'block';
+    
+    // إضافة مستمع الحدث لتغيير المدة
+    const periodSelect = document.getElementById('reportPeriod');
+    periodSelect.addEventListener('change', function() {
+        updateCalendarRange(this.value);
+    });
+    
+    // تحديث التاريخ الافتراضي ليكون اليوم
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('reportStartDate').value = today;
+    
+    // تحديث النطاق المحدد في التقويم
+    updateCalendarRange(periodSelect.value);
+}
